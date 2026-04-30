@@ -45,3 +45,42 @@ def authenticate_user(email: str, password: str) -> Optional[dict]:
     if not user or not verify_password(password, user.password):
         return None
     return user
+
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPublic:
+    cred_exc = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user: Optional[str] = payload.get("sub")
+        if user is None:
+            raise cred_exc
+    except JWTError:
+        raise cred_exc
+
+    user = get_user(user.email)
+    if not user:
+        raise cred_exc
+    return UserPublic(username=user["username"], full_name=user.get("full_name"))
+
+
+# FIXME: ValueError: password cannot be longer than 72 bytes
+@app.post("/register", status_code=201, summary="Create a new user")
+def register_user(body: UserCreate):
+    hashed = hash_password(body.password)
+    create_user(body.username, hashed, body.full_name or "")
+    return {"message": "User registered successfully"}
+
+@app.post("/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    access_token = create_access_token({"sub": user["username"]})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/me", response_model=UserPublic, summary="Get my profile (protected)")
+def read_me(current_user: UserPublic = Depends(get_current_user)):
+    return current_user
