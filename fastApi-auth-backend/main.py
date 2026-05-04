@@ -31,7 +31,7 @@ def hash_password(password: str):
     password_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt(rounds=12)  # rounds=12 is a good balance of security and performance
     hashed = bcrypt.hashpw(password_bytes, salt)
-    return hashed
+    return hashed.decode('utf-8')
 
 
 def verify_password(plain: str, hashed: str) -> bool:
