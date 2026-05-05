@@ -1,6 +1,8 @@
 from prisma import Prisma
 from fastapi import HTTPException
 db = Prisma()
+import asyncio
+
 
 async def is_db_connected() -> bool:
   try:
@@ -8,10 +10,6 @@ async def is_db_connected() -> bool:
     return True
   except Exception:
     return False
-  
-async def connect_db() -> None:
-    await db.connect()
-
   
 async def get_user(email: str):
   try:
@@ -26,8 +24,8 @@ async def get_user(email: str):
 
 async def create_user(email: str, password:str):
     # try:
-      # if is_db_connected() == False:
-      await db.connect()
+      if await is_db_connected() == False:
+        await db.connect()
       print(type(password))
       user = await db.user.create(
         data={
