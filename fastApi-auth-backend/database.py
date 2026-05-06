@@ -13,7 +13,7 @@ async def is_db_connected() -> bool:
   
 async def get_user(email: str):
   try:
-    if is_db_connected() == False:
+    if await is_db_connected() == False:
       await db.connect()
     user = await db.user.find_unique(where={"email": email})
     return user
@@ -23,7 +23,7 @@ async def get_user(email: str):
     await db.disconnect()
 
 async def create_user(email: str, password:str):
-    # try:
+    try:
       if await is_db_connected() == False:
         await db.connect()
       print(type(password))
@@ -32,7 +32,7 @@ async def create_user(email: str, password:str):
           'email': email, 
           'password': password
           })
-    # except Exception as e:
-    #     raise HTTPException(status_code=409, detail=str(e))
-    # finally:
+    except Exception as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    finally:
       await db.disconnect()

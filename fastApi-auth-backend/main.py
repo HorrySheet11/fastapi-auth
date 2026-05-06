@@ -7,6 +7,9 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 from database import get_user, create_user
 import bcrypt
+import tracemalloc
+
+tracemalloc.start()
 
 SECRET_KEY = "CHANGE_ME_IN_PRODUCTION"          # Use an env var in real apps
 ALGORITHM = "HS256"
@@ -36,7 +39,7 @@ def hash_password(password: str):
 
 def verify_password(plain: str, hashed: str) -> bool:
     # return pwd_context.verify(plain, hashed)
-    return bcrypt.checkpw(plain.encode('utf-8'), hashed)
+    return bcrypt.checkpw(plain.encode('utf-8'), hashed.encode('utf-8'))
 
 def create_access_token(data: dict, expires_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES) -> str:
     to_encode = data.copy()
@@ -44,8 +47,9 @@ def create_access_token(data: dict, expires_minutes: int = ACCESS_TOKEN_EXPIRE_M
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def authenticate_user(email: str, password: str) -> Optional[dict]:
-    user = get_user(email)
+async def authenticate_user(email: str, password: str) -> Optional[dict]:
+    user = await get_user(email)
+    print(user)
     if not user or not verify_password(password, user.password):
         return None
     return user
@@ -63,13 +67,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPublic:
             raise cred_exc
     except JWTError:
         raise cred_exc
-    user = get_user(user.email)
+    user = await get_user(user.email)
     if not user:
         raise cred_exc
-    return UserPublic(email=user["email"])
+    return UserPublic(email=user.email)
 
 
-# FIXME: ValueError: password cannot be longer than 72 bytes
 @app.post("/register", status_code=201, summary="Create a new user")
 async def register_user(body: UserCreate):
     hashed = hash_password(body.password)
@@ -78,10 +81,10 @@ async def register_user(body: UserCreate):
 
 @app.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.email, form_data.password)
+    user = await authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = create_access_token({"sub": user["email"]})
+    access_token = create_access_token({"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/me", response_model=UserPublic, summary="Get my profile (protected)")
