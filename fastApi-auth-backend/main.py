@@ -17,7 +17,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 app = FastAPI(title="JWT App")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 class UserCreate(BaseModel):
     email: str = Field(..., min_length=3, max_length=20)
@@ -67,10 +67,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserPublic:
             raise cred_exc
     except JWTError:
         raise cred_exc
-    user = await get_user(user.email)
+    print(f"User: {user}") # print(user)
+    userGet = await get_user(user)
     if not user:
         raise cred_exc
-    return UserPublic(email=user.email)
+    return UserPublic(email=userGet.email)
 
 
 @app.post("/register", status_code=201, summary="Create a new user")
